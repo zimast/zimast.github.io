@@ -1,12 +1,69 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
-  <p>Hello, world</p>
-</body>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Puck.js v2 Bi-Directional Communication</title>
+  </head>
+  <body>
+    <h1>Puck.js v2 Bi-Directional Communication</h1>
+    <p>Received message: <span id="message"></span></p>
+    <button id="connectButton">Connect to Puck.js v2</button>
+    <script>
+      var characteristic;
+
+      // Get a reference to the button and message elements
+      var connectButton = document.getElementById("connectButton");
+      var messageElement = document.getElementById("message");
+
+      // Add a click event listener to the connect button
+      connectButton.addEventListener("click", function() {
+        // Use the Web Bluetooth API to connect to the Puck.js v2
+        navigator.bluetooth.requestDevice({
+          filters: [
+            { name: "Puck.js" },
+            { services: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"] }
+          ]
+        })
+        .then(device => {
+          console.log("Device connected:", device.name);
+
+          // Connect to the GATT server on the Puck.js v2
+          return device.gatt.connect();
+        })
+        .then(server => {
+          console.log("Connected to GATT server");
+
+          // Get the Nordic UART service on the Puck.js v2
+          return server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+        })
+        .then(service => {
+          console.log("Got Nordic UART service");
+
+          // Get the Nordic UART characteristic on the Puck.js v2
+          return service.getCharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+        })
+        .then(char => {
+          console.log("Got Nordic UART characteristic");
+
+          // Set up a notification to receive messages from the Puck.js v2
+          characteristic = char;
+          characteristic.addEventListener("characteristicvaluechanged", event => {
+            // Convert the received data to a string
+            let message = new TextDecoder().decode(event.target.value);
+            console.log("Received message:", message);
+            messageElement.innerText = message;
+
+            // Send a response message to the Puck.js v2
+            let response = "Response message!";
+            let responseBuffer = new TextEncoder().encode(response);
+            characteristic.writeValue(responseBuffer);
+          });
+          return characteristic.startNotifications();
+        })
+        .catch(error => {
+          console.error("Error:", error);
+        });
+      });
+    </script>
+  </body>
 </html>
